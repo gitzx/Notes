@@ -74,8 +74,8 @@ class LEVELDB_EXPORT Status {
  private:
   // OK status has a NULL state_.  Otherwise, state_ is a new[] array
   // of the following form:
-  //    state_[0..3] == length of message
-  //    state_[4]    == code
+  //    state_[0..3] == length of message //4个字节(sizeof(uint32_t))
+  //    state_[4]    == code  //一个字节
   //    state_[5..]  == message
   const char* state_;
 
