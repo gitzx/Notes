@@ -11,6 +11,7 @@ Iterator::Iterator() {
   cleanup_.next = NULL;
 }
 
+//iterator销毁时执行清理函数
 Iterator::~Iterator() {
   if (cleanup_.function != NULL) {
     (*cleanup_.function)(cleanup_.arg1, cleanup_.arg2);
@@ -23,6 +24,7 @@ Iterator::~Iterator() {
   }
 }
 
+//注册清理函数
 void Iterator::RegisterCleanup(CleanupFunction func, void* arg1, void* arg2) {
   assert(func != NULL);
   Cleanup* c;
