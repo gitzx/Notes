@@ -68,6 +68,8 @@ std::string Status::ToString() const {
         type = "IO error: ";
         break;
       default:
+	//sprintf可能导致缓冲区溢出问题而不被推荐使用。
+	//snprintf通过提供缓冲区的可用大小传入参数来保证缓冲区的不溢出，如果超出缓冲区大小则进行截断。
         snprintf(tmp, sizeof(tmp), "Unknown code(%d): ",
                  static_cast<int>(code()));
         type = tmp;
@@ -76,6 +78,7 @@ std::string Status::ToString() const {
     std::string result(type);
     uint32_t length;
     memcpy(&length, state_, sizeof(length));
+    //下标从5开始表示消息内容
     result.append(state_ + 5, length);
     return result;
   }
