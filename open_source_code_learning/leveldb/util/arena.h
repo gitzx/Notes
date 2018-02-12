@@ -35,14 +35,14 @@ class Arena {
   char* AllocateNewBlock(size_t block_bytes);
 
   // Allocation state
-  char* alloc_ptr_;
-  size_t alloc_bytes_remaining_;
+  char* alloc_ptr_;  //指向基本块空闲内存位置
+  size_t alloc_bytes_remaining_;  //基本块剩余内存块大小
 
   // Array of new[] allocated memory blocks
-  std::vector<char*> blocks_;
+  std::vector<char*> blocks_;  //所有的内存块，包括基本块和直接分配的大块
 
   // Total memory usage of the arena.
-  port::AtomicPointer memory_usage_;
+  port::AtomicPointer memory_usage_;  //总的已用内存大小
 
   // No copying allowed
   Arena(const Arena&);

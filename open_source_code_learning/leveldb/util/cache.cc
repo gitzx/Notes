@@ -62,6 +62,8 @@ struct LRUHandle {
   bool in_cache;  //判断cache是否包括一个入口引用      // Whether entry is in the cache.
   uint32_t refs;  //这个节点引用次数，当次数为0时，即可删除      // References, including cache reference, if present.
   uint32_t hash;  //这个键值得哈希值      // Hash of key(); used for fast sharding and comparisons
+  //C++柔性数组。 GCC 由于对 C99 的支持，允许定义 char key_data[] 这样的柔性数组（Flexible Array)。
+  //但是由于 C++ 标准并不支持柔性数组的实现，这里定义为 key_data[1]，这也是 c++ 中的标准做法。
   char key_data[1];  //key的首地址   // Beginning of key
 
   Slice key() const {

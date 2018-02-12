@@ -38,6 +38,16 @@ namespace leveldb {
 class Arena;
 
 template<typename Key, class Comparator>
+
+//跳跃链表是一种数据结构，允许快速查询一个有序连续元素的数据链表。快速查询是通过维护一个多层次的链表，且每一层链表中的元素是前一层链表元素的子集。
+//基于并联的链表，其效率可比拟于二叉查找树（对于大多数操作需要O(log n)平均时间）。
+//跳跃列表是按层建造的。底层是一个普通的有序链表。这里在层 i 中的元素按某个固定的概率 p (通常为0.5或0.25)出现在层 i+1 中。
+//平均起来，每个元素都在 1/(1-p) 个列表中出现，而最高层的元素（通常是在跳跃列表前端的一个特殊的头元素）在 O(log1/p n) 个列表中出现。
+//1
+//1-----4---6
+//1---3-4---6-----9
+//1-2-3-4-5-6-7-8-9-10
+
 class SkipList {
  private:
   struct Node;
@@ -46,46 +56,58 @@ class SkipList {
   // Create a new SkipList object that will use "cmp" for comparing keys,
   // and will allocate memory using "*arena".  Objects allocated in the arena
   // must remain allocated for the lifetime of the skiplist object.
+  // 创建一个skiplist，cmp是比较函数，利用arena分配内存
   explicit SkipList(Comparator cmp, Arena* arena);
 
   // Insert key into the list.
   // REQUIRES: nothing that compares equal to key is currently in the list.
+  // 插入新值到skiplist中
   void Insert(const Key& key);
 
   // Returns true iff an entry that compares equal to key is in the list.
+  // 判断key是否存在
   bool Contains(const Key& key) const;
 
   // Iteration over the contents of a skip list
+  // skiplist的迭代器
   class Iterator {
    public:
     // Initialize an iterator over the specified list.
     // The returned iterator is not valid.
+    // 在特定的skiplist上初始化一个迭代器
     explicit Iterator(const SkipList* list);
 
     // Returns true iff the iterator is positioned at a valid node.
+    //判断迭代器是否定位在一个有效的节点上
     bool Valid() const;
 
     // Returns the key at the current position.
     // REQUIRES: Valid()
+    // 返回当前位置的key
     const Key& key() const;
 
     // Advances to the next position.
     // REQUIRES: Valid()
+    // 定位到下一个位置
     void Next();
 
     // Advances to the previous position.
     // REQUIRES: Valid()
+    // 定位到前一个位置
     void Prev();
 
     // Advance to the first entry with a key >= target
+    // 定位到key >= target 的第一个位置
     void Seek(const Key& target);
 
     // Position at the first entry in list.
     // Final state of iterator is Valid() iff list is not empty.
+    // 定位到头结点
     void SeekToFirst();
 
     // Position at the last entry in list.
     // Final state of iterator is Valid() iff list is not empty.
+    // 定位到尾节点
     void SeekToLast();
 
    private:
@@ -95,31 +117,40 @@ class SkipList {
   };
 
  private:
-  enum { kMaxHeight = 12 };
+  enum { kMaxHeight = 12 };  //skiplist的最高层级为12
 
   // Immutable after construction
-  Comparator const compare_;
+  Comparator const compare_;  //key值的比较函数，一旦初始化就不能变化了
   Arena* const arena_;    // Arena used for allocations of nodes
 
-  Node* const head_;
+  Node* const head_;  //skiplist的头结点
 
   // Modified only by Insert().  Read racily by readers, but stale
   // values are ok.
-  port::AtomicPointer max_height_;   // Height of the entire list
+  //只会被Insert()修改
+  //AtomicPointer是leveldb定义的一个原子指针
+  //它的读取和写入都设立了内存屏障，保证读取的值是即时最新的
+  //这里直接将int型转换为指针保存，并且不会对其取地址
+  port::AtomicPointer max_height_;  //当前skiplist的最大层数  // Height of the entire list
 
+  //返回skiplist的层数
   inline int GetMaxHeight() const {
     return static_cast<int>(
         reinterpret_cast<intptr_t>(max_height_.NoBarrier_Load()));
   }
 
   // Read/written only by Insert().
-  Random rnd_;
+  //产生随机的level层数，只有执行Insert()时才会被调用
+  Random rnd_;  
 
+  //新建一个level为height，值为key的节点
   Node* NewNode(const Key& key, int height);
-  int RandomHeight();
+  int RandomHeight();  //随机产生一个level层数值
+  //比较两个key是否相等
   bool Equal(const Key& a, const Key& b) const { return (compare_(a, b) == 0); }
 
   // Return true if key is greater than the data stored in "n"
+  // 判断key值是否比节点n的key值大
   bool KeyIsAfterNode(const Key& key, Node* n) const;
 
   // Return the earliest node that comes at or after key.
@@ -127,17 +158,21 @@ class SkipList {
   //
   // If prev is non-NULL, fills prev[level] with pointer to previous
   // node at "level" for every level in [0..max_height_-1].
+  //找到key对应的Node或者key后面紧邻的Node
   Node* FindGreaterOrEqual(const Key& key, Node** prev) const;
 
   // Return the latest node with a key < key.
   // Return head_ if there is no such node.
+  // 找到key前面紧邻的Node，如果skiplist为空，则返回头节点
   Node* FindLessThan(const Key& key) const;
 
   // Return the last node in the list.
   // Return head_ if list is empty.
+  // 找到skiplist最后的一个节点，如果skiplist为空，则返回头节点
   Node* FindLast() const;
 
   // No copying allowed
+  // 拷贝构造和赋值构造操作不允许
   SkipList(const SkipList&);
   void operator=(const SkipList&);
 };
