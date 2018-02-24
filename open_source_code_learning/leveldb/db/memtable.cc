@@ -19,9 +19,9 @@ static Slice GetLengthPrefixedSlice(const char* data) {
 }
 
 MemTable::MemTable(const InternalKeyComparator& cmp)
-    : comparator_(cmp),
-      refs_(0),
-      table_(comparator_, &arena_) {
+    : comparator_(cmp), //InternalKeyComparator来初始化comparator_
+      refs_(0), //引用次数初始化为0
+      table_(comparator_, &arena_) { //skiplist表初始化
 }
 
 MemTable::~MemTable() {
@@ -87,28 +87,28 @@ void MemTable::Add(SequenceNumber s, ValueType type,
   //  key bytes    : char[internal_key.size()]
   //  value_size   : varint32 of value.size()
   //  value bytes  : char[value.size()]
-  size_t key_size = key.size();
-  size_t val_size = value.size();
-  size_t internal_key_size = key_size + 8;
+  size_t key_size = key.size();  //键值的长度
+  size_t val_size = value.size(); //值的长度
+  size_t internal_key_size = key_size + 8;  //InternalKey的长度
   const size_t encoded_len =
       VarintLength(internal_key_size) + internal_key_size +
-      VarintLength(val_size) + val_size;
-  char* buf = arena_.Allocate(encoded_len);
-  char* p = EncodeVarint32(buf, internal_key_size);
-  memcpy(p, key.data(), key_size);
-  p += key_size;
-  EncodeFixed64(p, (s << 8) | type);
+      VarintLength(val_size) + val_size;  //skiplist节点键的长度
+  char* buf = arena_.Allocate(encoded_len);  //分配键值内存
+  char* p = EncodeVarint32(buf, internal_key_size);  //键长度存于buf中
+  memcpy(p, key.data(), key_size);  //键的内容存入buf中
+  p += key_size;  //指针向后移动key_size个字节
+  EncodeFixed64(p, (s << 8) | type);  //序列号和类型
   p += 8;
-  p = EncodeVarint32(p, val_size);
-  memcpy(p, value.data(), val_size);
+  p = EncodeVarint32(p, val_size);  //值的长度
+  memcpy(p, value.data(), val_size);  //值得内容
   assert((p + val_size) - buf == encoded_len);
-  table_.Insert(buf);
+  table_.Insert(buf);  //插入到skiplist中
 }
 
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
-  Slice memkey = key.memtable_key();
-  Table::Iterator iter(&table_);
-  iter.Seek(memkey.data());
+  Slice memkey = key.memtable_key();  //获取memtable_key
+  Table::Iterator iter(&table_);  //获取skiplist的迭代器
+  iter.Seek(memkey.data());  //迭代器查找
   if (iter.Valid()) {
     // entry format is:
     //    klength  varint32
@@ -124,16 +124,16 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
     const char* key_ptr = GetVarint32Ptr(entry, entry+5, &key_length);
     if (comparator_.comparator.user_comparator()->Compare(
             Slice(key_ptr, key_length - 8),
-            key.user_key()) == 0) {
+            key.user_key()) == 0) {  //查找到key值
       // Correct user key
-      const uint64_t tag = DecodeFixed64(key_ptr + key_length - 8);
+      const uint64_t tag = DecodeFixed64(key_ptr + key_length - 8); //取出标签，判断类型
       switch (static_cast<ValueType>(tag & 0xff)) {
-        case kTypeValue: {
+        case kTypeValue: {  //正常值类型
           Slice v = GetLengthPrefixedSlice(key_ptr + key_length);
           value->assign(v.data(), v.size());
           return true;
         }
-        case kTypeDeletion:
+        case kTypeDeletion:  //要删除的类型
           *s = Status::NotFound(Slice());
           return true;
       }
