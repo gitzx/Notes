@@ -7,13 +7,13 @@
 namespace leveldb {
 
 void EncodeFixed32(char* buf, uint32_t value) {
-  if (port::kLittleEndian) {
+  if (port::kLittleEndian) { //如果是小端，则直接内存复制
     memcpy(buf, &value, sizeof(value));
-  } else {
-    buf[0] = value & 0xff;
-    buf[1] = (value >> 8) & 0xff;
-    buf[2] = (value >> 16) & 0xff;
-    buf[3] = (value >> 24) & 0xff;
+  } else {  //如果是大端，则一个一个字节的复制
+    buf[0] = value & 0xff; //复制第一个字节
+    buf[1] = (value >> 8) & 0xff; //复制第二个字节
+    buf[2] = (value >> 16) & 0xff; //复制第三个字节
+    buf[3] = (value >> 24) & 0xff; //复制第四个字节
   }
 }
 

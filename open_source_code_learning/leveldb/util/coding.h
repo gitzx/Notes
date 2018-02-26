@@ -55,17 +55,19 @@ extern char* EncodeVarint64(char* dst, uint64_t value);
 // Lower-level versions of Get... that read directly from a character buffer
 // without any bounds checking.
 
+//解码 从字符串到整型
 inline uint32_t DecodeFixed32(const char* ptr) {
   if (port::kLittleEndian) {
     // Load the raw bytes
     uint32_t result;
+    //小端直接内存复制
     memcpy(&result, ptr, sizeof(result));  // gcc optimizes this to a plain load
     return result;
   } else {
-    return ((static_cast<uint32_t>(static_cast<unsigned char>(ptr[0])))
-        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[1])) << 8)
-        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[2])) << 16)
-        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[3])) << 24));
+    return ((static_cast<uint32_t>(static_cast<unsigned char>(ptr[0]))) //取最小字节
+        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[1])) << 8) //取第二个字节
+        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[2])) << 16) //取第三个字节
+        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[3])) << 24)); //取第四个字节
   }
 }
 
