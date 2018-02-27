@@ -6,6 +6,10 @@
 // * Fixed-length numbers are encoded with least-significant byte first
 // * In addition we support variable length "varint" encoding
 // * Strings are encoded prefixed by their length in varint format
+//
+//leveldb使用的是小端字节存储，低字节存放在内存的低地址段，高字节存放在内存的高地址端
+//leveldb所有数据都是字符形式(好处是减少内存空间的使用)，leveldb有两种整型和字符型数据转换
+//分别是Fixed和Varint，每种分32位和64位
 
 #ifndef STORAGE_LEVELDB_UTIL_CODING_H_
 #define STORAGE_LEVELDB_UTIL_CODING_H_

@@ -19,8 +19,8 @@ void EncodeFixed32(char* buf, uint32_t value) {
 
 void EncodeFixed64(char* buf, uint64_t value) {
   if (port::kLittleEndian) {
-    memcpy(buf, &value, sizeof(value));
-  } else {
+    memcpy(buf, &value, sizeof(value)); //如果是小端，则直接内存复制
+  } else {  //如果是大端，则一个一个字节的复制
     buf[0] = value & 0xff;
     buf[1] = (value >> 8) & 0xff;
     buf[2] = (value >> 16) & 0xff;
@@ -44,15 +44,23 @@ void PutFixed64(std::string* dst, uint64_t value) {
   dst->append(buf, sizeof(buf));
 }
 
+//Varint采用一种变长的编码方式，值越小的数字使用越小的字节数
+//Varint中每个byte的最高位bit，如果该位为1，表示后续的byte也是该数字的一部分，
+//如果该位为0，则结束。其余的7个bit都用来表示数字。
+//小于128可以用一个byte表示，例如0000 0001 #(1byte)表示1，对数字1进行Varint编码后为0000 0001
+//例如00000001 00101100 表示156 + 32 + 8 + 4 = 300
+//对00000001 00101100进行Varint编码步骤如下：
+//00000001 00101100 --(保留每7个字节，去掉最高位0)--> 0000010 0101100 
+//--(低字节写到高字节，最后一个字节最高位补0，其他字节最高位补1)--> 10101100 00000010
 char* EncodeVarint32(char* dst, uint32_t v) {
   // Operate on characters as unsigneds
   unsigned char* ptr = reinterpret_cast<unsigned char*>(dst);
-  static const int B = 128;
+  static const int B = 128; //128二进制为1000 0000
   if (v < (1<<7)) {
-    *(ptr++) = v;
+    *(ptr++) = v; //如果v小于128，则将v的低7位复制给ptr，ptr的第8位设为0，表示高位没数据，ptr+1
   } else if (v < (1<<14)) {
-    *(ptr++) = v | B;
-    *(ptr++) = v>>7;
+    *(ptr++) = v | B; //将v的低7位复制位ptr的低7位，ptr的第8位设为1，表示高位还有数据
+    *(ptr++) = v>>7; //再把v的高7位复制位(ptr+1)的低7位，(ptr+1)的第8位设为0，表示高位没有数据
   } else if (v < (1<<21)) {
     *(ptr++) = v | B;
     *(ptr++) = (v>>7) | B;
@@ -114,12 +122,12 @@ const char* GetVarint32PtrFallback(const char* p,
                                    uint32_t* value) {
   uint32_t result = 0;
   for (uint32_t shift = 0; shift <= 28 && p < limit; shift += 7) {
-    uint32_t byte = *(reinterpret_cast<const unsigned char*>(p));
-    p++;
-    if (byte & 128) {
+    uint32_t byte = *(reinterpret_cast<const unsigned char*>(p)); //取出p指向的字节
+    p++; //指向下一个字节
+    if (byte & 128) { //byte最高位为1，高位还有数据
       // More bytes are present
-      result |= ((byte & 127) << shift);
-    } else {
+      result |= ((byte & 127) << shift); //每7位移动一次，分别向result的7位赋值
+    } else { //byte最高位为0，高位没有数据了
       result |= (byte << shift);
       *value = result;
       return reinterpret_cast<const char*>(p);
