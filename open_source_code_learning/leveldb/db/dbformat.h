@@ -19,15 +19,19 @@ namespace leveldb {
 // Grouping of constants.  We may want to make some of these
 // parameters set via options.
 namespace config {
+//SSTable的层级数
 static const int kNumLevels = 7;
 
 // Level-0 compaction is started when we hit this many files.
+// 当文件数达到4时触发Level-0压缩
 static const int kL0_CompactionTrigger = 4;
 
 // Soft limit on number of level-0 files.  We slow down writes at this point.
+// 软性限制：当level-0文件数达到8时，会降低写的速度
 static const int kL0_SlowdownWritesTrigger = 8;
 
 // Maximum number of level-0 files.  We stop writes at this point.
+// 当level-0的文件数达到12时，停止写
 static const int kL0_StopWritesTrigger = 12;
 
 // Maximum level to which a new compacted memtable is pushed if it
@@ -36,9 +40,12 @@ static const int kL0_StopWritesTrigger = 12;
 // expensive manifest file operations.  We do not push all the way to
 // the largest level since that can generate a lot of wasted disk
 // space if the same key space is being repeatedly overwritten.
+//如果新生成的SSTable和Level-0的SSTable有交叠，那么新产生的SSTable直接加入到Level-0
+//否则根据一定策略，向上推到高层Level，但最高推到Level-2
 static const int kMaxMemCompactLevel = 2;
 
 // Approximate gap in bytes between samples of data read during iteration.
+// 迭代读取的字节近似值
 static const int kReadBytesPeriod = 1048576;
 
 }  // namespace config
@@ -48,9 +55,13 @@ class InternalKey;
 // Value types encoded as the last component of internal keys.
 // DO NOT CHANGE THESE ENUM VALUES: they are embedded in the on-disk
 // data structures.
+//leveldb更新(put/delete)某个key时不会操作db中的数据，每次操作都是直接新插入一份kv数据
+//具体的数据合并和清除由后台的compact完成。
+//每次put，db中就会新加入一份新的kv数据，即时该key已经存在；每次delete等同于put空的value。
+//用ValueType来标识真实的kv数据和删除操作的mock数据。
 enum ValueType {
-  kTypeDeletion = 0x0,
-  kTypeValue = 0x1
+  kTypeDeletion = 0x0, //标志数据已经删除
+  kTypeValue = 0x1 //标志数据时有效的
 };
 // kValueTypeForSeek defines the ValueType that should be passed when
 // constructing a ParsedInternalKey object for seeking to a particular
@@ -60,15 +71,21 @@ enum ValueType {
 // ValueType, not the lowest).
 static const ValueType kValueTypeForSeek = kTypeValue;
 
+//leveldb中的每次更新(put/delete)操作都拥有一个版本，有SequenceNumber来标识；
+//整个db有一个全局值保存着当前使用到的SequenceNumber。
+//key的排序，compact和snapshot都依赖它。
 typedef uint64_t SequenceNumber;
 
 // We leave eight bits empty at the bottom so a type and sequence#
 // can be packed together into 64-bits.
+//ValueType和SequenceNumber组合在一起存储，共占据64位
+//其中SequenceNumber占据前56位，后面8位用于存储ValueType
 static const SequenceNumber kMaxSequenceNumber =
-    ((0x1ull << 56) - 1);
+    ((0x1ull << 56) - 1); //0x1ull表示1 类型为unsigned long long (i.e. 64-bit)
 
+//db内部操作的key，格式是user_key + sequence number + value type
 struct ParsedInternalKey {
-  Slice user_key;
+  Slice user_key; //用户层面传入的key，使用slice格式.
   SequenceNumber sequence;
   ValueType type;
 
@@ -79,6 +96,7 @@ struct ParsedInternalKey {
 };
 
 // Return the length of the encoding of "key".
+// 返回InternalKey的长度：user_key的长度+8字节
 inline size_t InternalKeyEncodingLength(const ParsedInternalKey& key) {
   return key.user_key.size() + 8;
 }
@@ -95,11 +113,13 @@ extern bool ParseInternalKey(const Slice& internal_key,
                              ParsedInternalKey* result);
 
 // Returns the user key portion of an internal key.
+// 返回internal key中的user key部分
 inline Slice ExtractUserKey(const Slice& internal_key) {
   assert(internal_key.size() >= 8);
   return Slice(internal_key.data(), internal_key.size() - 8);
 }
 
+//获取internal key的value type
 inline ValueType ExtractValueType(const Slice& internal_key) {
   assert(internal_key.size() >= 8);
   const size_t n = internal_key.size();
@@ -110,6 +130,9 @@ inline ValueType ExtractValueType(const Slice& internal_key) {
 
 // A comparator for internal keys that uses a specified comparator for
 // the user key portion and breaks ties by decreasing sequence number.
+// db内部做key排序时使用的比较方法。排序时会先使用user_comparator比较user_key,
+// 如果user_key相同，则比较SequenceNumber，SequenceNumber大的为小。
+// 因为SequenceNumber在db中全局递增，所以对于相同的user_key，SequenceNumber更大的排在前面，在查找的时候先被找到
 class InternalKeyComparator : public Comparator {
  private:
   const Comparator* user_comparator_;
@@ -186,6 +209,8 @@ inline bool ParseInternalKey(const Slice& internal_key,
 }
 
 // A helper class useful for DBImpl::Get()
+// LookupKey相比InternalKey，在前面使用varint32格式来记录InternalKey所占据的空间大小
+// LookupKey的格式：length + user key + sequence number + value_type
 class LookupKey {
  public:
   // Initialize *this for looking up user_key at a snapshot with

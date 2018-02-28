@@ -47,6 +47,8 @@ const char* InternalKeyComparator::Name() const {
   return "leveldb.InternalKeyComparator";
 }
 
+//db内部做key排序时使用的比较方法。排序时，会先使用user-comparator比较user-key，
+//如果user-key相同，则比较SequnceNumber，SequnceNumber大的为小。
 int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   // Order by:
   //    increasing user key (according to user-supplied comparator)
@@ -65,6 +67,7 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   return r;
 }
 
+//找到比start大但比limit小的值
 void InternalKeyComparator::FindShortestSeparator(
       std::string* start,
       const Slice& limit) const {
@@ -84,6 +87,7 @@ void InternalKeyComparator::FindShortestSeparator(
   }
 }
 
+//找到比key大的最小key
 void InternalKeyComparator::FindShortSuccessor(std::string* key) const {
   Slice user_key = ExtractUserKey(*key);
   std::string tmp(user_key.data(), user_key.size());
@@ -118,6 +122,8 @@ bool InternalFilterPolicy::KeyMayMatch(const Slice& key, const Slice& f) const {
   return user_policy_->KeyMayMatch(ExtractUserKey(key), f);
 }
 
+//start_标志整个LookupKey的开始位置，kstart_指向user_key的开始位置，
+//end_指向整个LookupKey的结束位置
 LookupKey::LookupKey(const Slice& user_key, SequenceNumber s) {
   size_t usize = user_key.size();
   size_t needed = usize + 13;  // A conservative estimate
