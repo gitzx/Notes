@@ -12,7 +12,7 @@
 
 namespace leveldb {
 
-class WritableFile;
+class WritableFile; //log日志文件封装类
 
 namespace log {
 
@@ -34,7 +34,7 @@ class Writer {
 
  private:
   WritableFile* dest_;
-  int block_offset_;       // Current offset in block
+  int block_offset_; //块内偏移量用于指定写地址      // Current offset in block
 
   // crc32c values for all supported record types.  These are
   // pre-computed to reduce the overhead of computing the crc of the
