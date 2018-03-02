@@ -34,17 +34,20 @@ Reader::~Reader() {
 }
 
 bool Reader::SkipToInitialBlock() {
-  const size_t offset_in_block = initial_offset_ % kBlockSize;
-  uint64_t block_start_location = initial_offset_ - offset_in_block;
+  const size_t offset_in_block = initial_offset_ % kBlockSize; //计算在block内的偏移位置
+  uint64_t block_start_location = initial_offset_ - offset_in_block; //计算该block的起始位置
 
   // Don't search a block if we'd be in the trailer
+  // 如果偏移在最后6byte里，则表明该block是trailer，跳到下一个block
   if (offset_in_block > kBlockSize - 6) {
     block_start_location += kBlockSize;
   }
 
+  //设置读取偏移
   end_of_buffer_offset_ = block_start_location;
 
   // Skip to start of first block that can contain the initial record
+  // 跳到包括初始记录的第一个块
   if (block_start_location > 0) {
     Status skip_status = file_->Skip(block_start_location);
     if (!skip_status.ok()) {

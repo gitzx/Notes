@@ -58,20 +58,20 @@ class Reader {
   uint64_t LastRecordOffset();
 
  private:
-  SequentialFile* const file_;
-  Reporter* const reporter_;
-  bool const checksum_;
-  char* const backing_store_;
-  Slice buffer_;
-  bool eof_;   // Last Read() indicated EOF by returning < kBlockSize
+  SequentialFile* const file_; //读取文件封装类
+  Reporter* const reporter_; //报告错误类
+  bool const checksum_; //是否要进行CRC验证
+  char* const backing_store_; //读取是存储备份
+  Slice buffer_; //一次性读取一个块，且用于定位last_record_offset_
+  bool eof_; //是否是最后一次读  // Last Read() indicated EOF by returning < kBlockSize
 
   // Offset of the last record returned by ReadRecord.
-  uint64_t last_record_offset_;
+  uint64_t last_record_offset_; //上次记录的偏移量
   // Offset of the first location past the end of buffer_.
-  uint64_t end_of_buffer_offset_;
+  uint64_t end_of_buffer_offset_; //当前块结尾在log文件的偏移量
 
   // Offset at which to start looking for the first record to return
-  uint64_t const initial_offset_;
+  uint64_t const initial_offset_; //开始查找的起始地址
 
   // True if we are resynchronizing after a seek (initial_offset_ > 0). In
   // particular, a run of kMiddleType and kLastType records can be silently
@@ -79,6 +79,7 @@ class Reader {
   bool resyncing_;
 
   // Extend record types with the following special values
+  // 扩展record类型
   enum {
     kEof = kMaxRecordType + 1,
     // Returned whenever we find an invalid physical record.
