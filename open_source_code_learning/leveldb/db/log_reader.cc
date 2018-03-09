@@ -33,6 +33,7 @@ Reader::~Reader() {
   delete[] backing_store_;
 }
 
+//跳过直到initial_offset的位置，成功则返回true
 bool Reader::SkipToInitialBlock() {
   const size_t offset_in_block = initial_offset_ % kBlockSize; //计算在block内的偏移位置
   uint64_t block_start_location = initial_offset_ - offset_in_block; //计算该block的起始位置
@@ -75,11 +76,13 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
 
   Slice fragment;
   while (true) {
+    //读取当前记录
     const unsigned int record_type = ReadPhysicalRecord(&fragment);
 
     // ReadPhysicalRecord may have only had an empty trailer remaining in its
     // internal buffer. Calculate the offset of the next physical record now
     // that it has returned, properly accounting for its header size.
+    // 当前记录的起始地址
     uint64_t physical_record_offset =
         end_of_buffer_offset_ - buffer_.size() - kHeaderSize - fragment.size();
 
