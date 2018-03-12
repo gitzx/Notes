@@ -56,6 +56,9 @@ extern bool SomeFileOverlapsRange(
     const Slice* smallest_user_key,
     const Slice* largest_user_key);
 
+//将每次compact后的最新数据状态定义为Version，也就是当前db元信息以及每个level上具有最新数据状态的sstable集合。
+//compact会在某个level上新加入或者删除一些sstable，但可能这个时候，那些要删除的sstable正在被读，为了处理这样的读写竞争情况，
+//基于sstable文件一旦生成就不会改动的特点，每个Version加入引用计数，读以及解除读操作会将引用计数相应加减一。
 class Version {
  public:
   // Append to *iters a sequence of iterators that will
@@ -129,21 +132,28 @@ class Version {
                           void* arg,
                           bool (*func)(void*, int, FileMetaData*));
 
+  //当前version属于哪一个VersionSet
   VersionSet* vset_;            // VersionSet to which this Version belongs
+  //链表指针
   Version* next_;               // Next version in linked list
   Version* prev_;               // Previous version in linked list
+  //引用计数
   int refs_;                    // Number of live refs to this version
 
   // List of files per level
+  // 每个level的所有SSTable元信息
   std::vector<FileMetaData*> files_[config::kNumLevels];
 
   // Next file to compact based on seek stats.
+  // 需要compact的文件
   FileMetaData* file_to_compact_;
+  //file_to_compact_的level
   int file_to_compact_level_;
 
   // Level that should be compacted next and its compaction score.
   // Score < 1 means compaction is not strictly needed.  These fields
   // are initialized by Finalize().
+  // 当前最大的compact权重以及对应的level
   double compaction_score_;
   int compaction_level_;
 
@@ -162,6 +172,8 @@ class Version {
   void operator=(const Version&);
 };
 
+//整个db的当前状态被VersionSet管理着，其中有当前最新的Version以及其他正在服务的Version链表；
+//全局的SequnceNumber，FileNumber；当前的manifest_file_number; 封装sstable的TableCache。 每个level中下一次compact要选取的start_key等等。
 class VersionSet {
  public:
   VersionSet(const std::string& dbname,
@@ -321,6 +333,12 @@ class VersionSet {
 };
 
 // A Compaction encapsulates information about a compaction.
+// db中有一个compact后台进程，负责将memtable持久化成sstable，以及均衡整个db中各level的sstable。
+// Comapct进程会优先将已经写满的memtable dump成level-0的sstable（不会合并相同key或者清理已经删除的key）。
+// 然后，根据设计的策略选取level-n 以及level-n+1中有key-range overlap的几个sstable进行merge(期间会合并相同的key以及清理删除的key），
+// 最后生成若干个level-(n+1)的ssatble。随着数据不断的写入和compact的进行，低level的sstable不断向高level迁移。
+// level-0中的sstable因为是由memtable直接dump得到，所以key-range可能overlap，
+// 而level-1以及更高level中的sstable都是做merge产生，保证了位于同level的sstable之间，key-range不会overlap，这个特性有利于读的处理。
 class Compaction {
  public:
   ~Compaction();
@@ -368,19 +386,29 @@ class Compaction {
 
   Compaction(const Options* options, int level);
 
-  int level_;
-  uint64_t max_output_file_size_;
-  Version* input_version_;
-  VersionEdit edit_;
+  int level_; //要compact的level
+  uint64_t max_output_file_size_; //生成sstable的最大size(kTargetFileSize)
+  Version* input_version_; //compact时当前的version
+  VersionEdit edit_; //记录compact过程中的操作
 
   // Each compaction reads inputs from "level_" and "level_+1"
+  // inputs_[0]为level-n的SSTable文件信息
+  // inputs_[1]为level-n+1的SSTable文件信息
   std::vector<FileMetaData*> inputs_[2];      // The two sets of inputs
 
   // State used to check for number of of overlapping grandparent files
   // (parent == level_ + 1, grandparent == level_ + 2)
+  // 位于level-n+2，且与compact的key-range有overlap的SSTable
+  // 保存grandparents_是因为compact最终会生成一系列level-n+1的SSTable，如果生成的
+  // SSTable与level-n+2中有过多的overlap的话，当compact level-n+1时，会产生过多的merge。
+  // 为了避免这种情况，compact过程中需要检查与level-n+2中产生的overlap的size并与
+  // 阈值 kMaxGrandParentOverlapBytes做比较，以便提前中止compact。
   std::vector<FileMetaData*> grandparents_;
+  //记录compact时grandparents_中已经overlap的index
   size_t grandparent_index_;  // Index in grandparent_starts_
+  //记录是否已经有key检查overlap
   bool seen_key_;             // Some output key has been seen
+  //记录overlap的累积大小
   int64_t overlapped_bytes_;  // Bytes of overlap between current output
                               // and grandparent files
 
@@ -390,6 +418,8 @@ class Compaction {
   // is that we are positioned at one of the file ranges for each
   // higher level than the ones involved in this compaction (i.e. for
   // all L >= level_ + 2).
+  // level_ptrs_[i]记录了input_version_->levels[i]中，上次比较结束的SSTable的容器下标
+  // compact时，key的遍历是顺序的，所以每次检查从上次检查结束的地方开始
   size_t level_ptrs_[config::kNumLevels];
 };
 
