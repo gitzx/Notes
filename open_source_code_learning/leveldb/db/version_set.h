@@ -23,6 +23,18 @@
 #include "port/port.h"
 #include "port/thread_annotations.h"
 
+//在数据库的锁机制中介绍过，数据库管理系统（DBMS）中的并发控制的任务是确保在多个事务同时存取数据库中同一数据时不破坏事务的隔离性和统一性以及数据库的统一性。
+//乐观并发控制(乐观锁)、悲观并发控制（悲观锁）、MVCC是并发控制主要采用的技术手段。
+//1.悲观锁: 它可以阻止一个事务以影响其他用户的方式来修改数据。如果一个事务执行的操作都某行数据应用了锁，
+//那只有当这个事务把锁释放，其他事务才能够执行与该锁冲突的操作。
+//2.乐观锁：它假设多用户并发的事务在处理时不会彼此互相影响，各事务能够在不产生锁的情况下处理各自影响的那部分数据。
+//在提交数据更新之前，每个事务会先检查在该事务读取数据后，有没有其他事务又修改了该数据。
+//如果其他事务有更新的话，正在提交的事务会进行回滚。 
+//3.MVCC: MVCC是一个数据库常用的概念。Multiversion concurrency control多版本并发控制。每一个执行操作的用户，
+//看到的都是数据库特定时刻的的快照(snapshot), writer的任何未完成的修改都不会被其他的用户所看到;
+//当对数据进行更新的时候并是不直接覆盖，而是先进行标记, 然后在其他地方添加新的数据，从而形成一个新版本, 
+//此时再来读取的reader看到的就是最新的版本了。所以这种处理策略是维护了多个版本的数据的,但只有一个是最新的。
+
 namespace leveldb {
 
 namespace log { class Writer; }
@@ -108,9 +120,11 @@ class Version {
 
   // Return the level at which we should place a new memtable compaction
   // result that covers the range [smallest_user_key,largest_user_key].
+  // 将Memtable dump出的SSTable文件放入到第几层
   int PickLevelForMemTableOutput(const Slice& smallest_user_key,
                                  const Slice& largest_user_key);
 
+  //判断某层level的文件个数
   int NumFiles(int level) const { return files_[level].size(); }
 
   // Return a human readable string that describes this version's contents.
@@ -306,25 +320,29 @@ class VersionSet {
 
   void AppendVersion(Version* v);
 
-  Env* const env_;
-  const std::string dbname_;
-  const Options* const options_;
-  TableCache* const table_cache_;
-  const InternalKeyComparator icmp_;
-  uint64_t next_file_number_;
-  uint64_t manifest_file_number_;
-  uint64_t last_sequence_;
-  uint64_t log_number_;
+  Env* const env_; //实际的Env
+  const std::string dbname_; //db的数据路径
+  const Options* const options_; //传入的options
+  TableCache* const table_cache_; //操作SSTable的TableCache
+  const InternalKeyComparator icmp_; //comparator
+  uint64_t next_file_number_; //下一个可用的FileNumber
+  uint64_t manifest_file_number_; //manifest文件的FileNumber
+  uint64_t last_sequence_; //最后用过的SequnceNumber
+  uint64_t log_number_; //log文件的FileNumber
+  //辅助log文件的FileNumber，当compact memtable时，置为0
   uint64_t prev_log_number_;  // 0 or backing store for memtable being compacted
 
   // Opened lazily
-  WritableFile* descriptor_file_;
-  log::Writer* descriptor_log_;
+  WritableFile* descriptor_file_; //manifest文件的封装
+  log::Writer* descriptor_log_; //manifest文件的writer
+  //正在服务的Version链表
   Version dummy_versions_;  // Head of circular doubly-linked list of versions.
-  Version* current_;        // == dummy_versions_.prev_
+  Version* current_; //当前最新的Version        // == dummy_versions_.prev_
 
   // Per-level key at which the next compaction at that level should start.
   // Either an empty string, or a valid InternalKey.
+  // 每一层下次compaction的键值，空值或一个有效的InternalKey
+  // 为了尽量均匀compact每个level，会将每次的compact的end-key作为下一次compact的start-key
   std::string compact_pointer_[config::kNumLevels];
 
   // No copying allowed
