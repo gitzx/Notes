@@ -10,17 +10,20 @@
 #include <vector>
 #include "db/dbformat.h"
 
+//version_edit这个类主要是两个版本之间的差量.
+//就是当前版本+version_edit即可成为新的版本，version0+version_edit=version1
+
 namespace leveldb {
 
 class VersionSet;
 
 struct FileMetaData {
-  int refs;
-  int allowed_seeks;          // Seeks allowed until compaction
-  uint64_t number;
-  uint64_t file_size;         // File size in bytes
-  InternalKey smallest;       // Smallest internal key served by table
-  InternalKey largest;        // Largest internal key served by table
+  int refs; //引用次数
+  int allowed_seeks;  //允许的最大查找次数         // Seeks allowed until compaction
+  uint64_t number; //SSTable的文件编号
+  uint64_t file_size; //SSTable文件大小         // File size in bytes
+  InternalKey smallest; //SSTable文件的最小key值  // Smallest internal key served by table
+  InternalKey largest; //SSTable文件的最大key值  // Largest internal key served by table
 
   FileMetaData() : refs(0), allowed_seeks(1 << 30), file_size(0) { }
 };
@@ -84,21 +87,26 @@ class VersionEdit {
  private:
   friend class VersionSet;
 
+  //定义删除文件集合，<层次， 文件编号>
   typedef std::set< std::pair<int, uint64_t> > DeletedFileSet;
 
-  std::string comparator_;
-  uint64_t log_number_;
-  uint64_t prev_log_number_;
-  uint64_t next_file_number_;
-  SequenceNumber last_sequence_;
-  bool has_comparator_;
+  std::string comparator_; //比较器
+  uint64_t log_number_; //log文件编号FileNumber
+  uint64_t prev_log_number_; //辅助log的FileNumber
+  uint64_t next_file_number_; //下一个可用的FileNumber
+  SequenceNumber last_sequence_; //用过的最后一个SequnceNumber
+  //标志是否存在，验证使用
+  bool has_comparator_; //是否有比较器
   bool has_log_number_;
   bool has_prev_log_number_;
   bool has_next_file_number_;
   bool has_last_sequence_;
 
+  //要更新的level ==》compact_pointer
   std::vector< std::pair<int, InternalKey> > compact_pointers_;
+  //要删除的sstable文件(compact的input)
   DeletedFileSet deleted_files_;
+  //新的文件(compact的output)
   std::vector< std::pair<int, FileMetaData> > new_files_;
 };
 
