@@ -39,33 +39,40 @@ void VersionEdit::Clear() {
 }
 
 void VersionEdit::EncodeTo(std::string* dst) const {
+  //把比较器的标识和名称放入到序列化字符串中
   if (has_comparator_) {
     PutVarint32(dst, kComparator);
     PutLengthPrefixedSlice(dst, comparator_);
   }
+  //把日志文件编号的标识和名称放入到序列化字符串中
   if (has_log_number_) {
     PutVarint32(dst, kLogNumber);
     PutVarint64(dst, log_number_);
   }
+  //把前一个日志文件编号的标识和名称放入到序列化字符串中
   if (has_prev_log_number_) {
     PutVarint32(dst, kPrevLogNumber);
     PutVarint64(dst, prev_log_number_);
   }
+  //把下一个文件的标识和名称放入到序列化字符串中
   if (has_next_file_number_) {
     PutVarint32(dst, kNextFileNumber);
     PutVarint64(dst, next_file_number_);
   }
+  //把上一个序列号的标识和名称放入到序列化字符串中
   if (has_last_sequence_) {
     PutVarint32(dst, kLastSequence);
     PutVarint64(dst, last_sequence_);
   }
 
+  //把每个压缩点的标识、层次和InternalKey放入到序列化字符串中
   for (size_t i = 0; i < compact_pointers_.size(); i++) {
     PutVarint32(dst, kCompactPointer);
     PutVarint32(dst, compact_pointers_[i].first);  // level
     PutLengthPrefixedSlice(dst, compact_pointers_[i].second.Encode());
   }
 
+  //把每个删除文件的标识、层次和文件编号放入到序列化字符串中
   for (DeletedFileSet::const_iterator iter = deleted_files_.begin();
        iter != deleted_files_.end();
        ++iter) {
@@ -74,6 +81,7 @@ void VersionEdit::EncodeTo(std::string* dst) const {
     PutVarint64(dst, iter->second);  // file number
   }
 
+  //把增加的字符串的标识和f属性加入到序列化字符串中
   for (size_t i = 0; i < new_files_.size(); i++) {
     const FileMetaData& f = new_files_[i].second;
     PutVarint32(dst, kNewFile);
