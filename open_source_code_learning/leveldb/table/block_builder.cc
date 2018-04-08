@@ -46,15 +46,16 @@ BlockBuilder::BlockBuilder(const Options* options)
 }
 
 void BlockBuilder::Reset() {
-  buffer_.clear();
-  restarts_.clear();
-  restarts_.push_back(0);       // First restart point is at offset 0
-  counter_ = 0;
-  finished_ = false;
-  last_key_.clear();
+  buffer_.clear();  //块内容清零
+  restarts_.clear();  //Restart节点清零
+  restarts_.push_back(0); //把0偏移添加到Restart节点  // First restart point is at offset 0
+  counter_ = 0;  //两个Restart节点之间的记录数清零
+  finished_ = false; //当前块写未结束
+  last_key_.clear();  //last_key清零
 }
 
 size_t BlockBuilder::CurrentSizeEstimate() const {
+  //数据容量大小 + Restart数组大小 + Restart数组大小值的大小
   return (buffer_.size() +                        // Raw data buffer
           restarts_.size() * sizeof(uint32_t) +   // Restart array
           sizeof(uint32_t));                      // Restart array length
