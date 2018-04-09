@@ -63,44 +63,53 @@ size_t BlockBuilder::CurrentSizeEstimate() const {
 
 Slice BlockBuilder::Finish() {
   // Append restart array
+  // 将Restart数组添加进记录后面
   for (size_t i = 0; i < restarts_.size(); i++) {
     PutFixed32(&buffer_, restarts_[i]);
   }
+  //将Restart数组大小添加到buffer_的Restart数组后面
   PutFixed32(&buffer_, restarts_.size());
-  finished_ = true;
-  return Slice(buffer_);
+  finished_ = true; //这次数据块写结束
+  return Slice(buffer_); //返回数据块的内容
 }
 
+//Record i格式：key共享长度 | key非共享长度 | value长度 | key非共享内容 | value内容
 void BlockBuilder::Add(const Slice& key, const Slice& value) {
-  Slice last_key_piece(last_key_);
-  assert(!finished_);
-  assert(counter_ <= options_->block_restart_interval);
+  Slice last_key_piece(last_key_); //上一条记录
+  assert(!finished_); //块写是否结束
+  assert(counter_ <= options_->block_restart_interval); //两个Restart节点之间记录数小于预先设定的值
   assert(buffer_.empty() // No values yet?
-         || options_->comparator->Compare(key, last_key_piece) > 0);
+         || options_->comparator->Compare(key, last_key_piece) > 0); //后面添加的键比上条记录大
   size_t shared = 0;
   if (counter_ < options_->block_restart_interval) {
     // See how much sharing to do with previous string
+    // 计算当前记录和上条记录的共享部分长度
     const size_t min_length = std::min(last_key_piece.size(), key.size());
     while ((shared < min_length) && (last_key_piece[shared] == key[shared])) {
       shared++;
     }
   } else {
     // Restart compression
+    // 添加一个Restart节点，counter_设为0
     restarts_.push_back(buffer_.size());
     counter_ = 0;
   }
+  //当前记录和上条记录非共享部分的长度
   const size_t non_shared = key.size() - shared;
 
   // Add "<shared><non_shared><value_size>" to buffer_
+  // 将shared、non_shared、value的长度添加进buffer_
   PutVarint32(&buffer_, shared);
   PutVarint32(&buffer_, non_shared);
   PutVarint32(&buffer_, value.size());
 
   // Add string delta to buffer_ followed by value
+  // 将当前记录的非共享内容和value内容添加进buffer_
   buffer_.append(key.data() + shared, non_shared);
   buffer_.append(value.data(), value.size());
 
   // Update state
+  // 更新上一条记录为当前记录
   last_key_.resize(shared);
   last_key_.append(key.data() + shared, non_shared);
   assert(Slice(last_key_) == key);
