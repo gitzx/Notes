@@ -37,12 +37,12 @@ class FilterBlockBuilder {
  private:
   void GenerateFilter();
 
-  const FilterPolicy* policy_;
-  std::string keys_;              // Flattened key contents
-  std::vector<size_t> start_;     // Starting index in keys_ of each key
-  std::string result_;            // Filter data computed so far
-  std::vector<Slice> tmp_keys_;   // policy_->CreateFilter() argument
-  std::vector<uint32_t> filter_offsets_;
+  const FilterPolicy* policy_;  //过滤策略
+  std::string keys_; //存放所有的key      // Flattened key contents
+  std::vector<size_t> start_; //存放每个key在keys_的开始位置 // Starting index in keys_ of each key
+  std::string result_; //已经产生的filter数据            // Filter data computed so far
+  std::vector<Slice> tmp_keys_; //记录每个filter产生的滤值得临时容器   // policy_->CreateFilter() argument
+  std::vector<uint32_t> filter_offsets_; //记录每个filter的offset的开始位置
 
   // No copying allowed
   FilterBlockBuilder(const FilterBlockBuilder&);
